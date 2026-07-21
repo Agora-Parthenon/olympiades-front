@@ -1,13 +1,15 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Olympiades Front</title>
-</head>
-<body>
-  <h1>Olympiades Front</h1>
-  <p>Le front est démarré et peut communiquer avec le gateway.</p>
-  <p>Utilisez <a href="${GATEWAY_URL}/api/platform/game/info">/api/platform/game/info</a> pour tester le backend via la gateway.</p>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Olympiades Front</title>
+  </head>
+  <body>
+    <h1>Olympiades Front</h1>
+    <p>Le front est démarré et peut communiquer avec le gateway.</p>
+    <p>Utilisez <a href="${GATEWAY_URL}/api/platform/game/info">/api/platform/game/info</a> pour tester le backend via la gateway.</p>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
