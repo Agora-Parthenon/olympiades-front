@@ -1,0 +1,4 @@
+// Généré au démarrage du conteneur par docker-entrypoint.sh (envsubst).
+window.__OLYMPIADES_CONFIG__ = {
+  gatewayUrl: '${GATEWAY_URL}',
+};
