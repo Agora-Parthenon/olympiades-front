@@ -9,6 +9,11 @@ if [ -z "$GATEWAY_URL" ]; then
   exit 1
 fi
 
-envsubst '$GATEWAY_URL' < /config.js.template > /usr/share/nginx/html/config.js
+if [ -z "$KEYCLOAK_URL" ]; then
+  echo "olympiades-front : la variable d'environnement KEYCLOAK_URL est obligatoire." >&2
+  exit 1
+fi
+
+envsubst < /config.js.template > /usr/share/nginx/html/config.js
 
 exec nginx -g 'daemon off;'
