@@ -14,6 +14,6 @@ if [ -z "$KEYCLOAK_URL" ]; then
   exit 1
 fi
 
-envsubst < /config.js.template > /usr/share/nginx/html/config.js
+envsubst '$GATEWAY_URL $KEYCLOAK_URL' < /config.js.template > /usr/share/nginx/html/config.js
 
 exec nginx -g 'daemon off;'

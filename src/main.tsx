@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { initKeycloak } from './core/services/keycloak.service';
+import { useUserStore } from './core/stores/user.store';
 
 initKeycloak()
   .catch((error: unknown) => {

@@ -17,11 +17,11 @@ const keycloak = new Keycloak({
 export async function initKeycloak(): Promise<boolean> {
   setTokenProvider(() => keycloak.token);
 
-const authenticated = await keycloak.init({
-  onLoad: "check-sso",
-  pkceMethod: "S256",
-  silentCheckSsoFallback: false,
-});
+  const authenticated = await keycloak.init({
+    onLoad: 'check-sso',
+    pkceMethod: 'S256',
+    silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
+  });
 
   if (authenticated) {
     syncUserStore();
