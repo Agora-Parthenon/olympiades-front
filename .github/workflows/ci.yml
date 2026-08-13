@@ -71,6 +71,11 @@ jobs:
           npm run test:coverage > tests-output.txt 2>&1
           status=$?
           cat tests-output.txt
+          if [ $status -eq 0 ]; then
+            ls -la coverage
+            test -f coverage/coverage-summary.json
+            test -f coverage/coverage-final.json
+          fi
           exit $status
         continue-on-error: true
 
