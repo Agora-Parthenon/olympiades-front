@@ -29,17 +29,35 @@ jobs:
 
       - name: Vérifier le lint
         id: lint
-        run: npm run lint
+        shell: bash
+        run: |
+          set +e
+          npm run lint > lint-output.txt 2>&1
+          status=$?
+          cat lint-output.txt
+          exit $status
         continue-on-error: true
 
       - name: Vérifier le formatage Prettier
         id: prettier
-        run: npm run prettier
+        shell: bash
+        run: |
+          set +e
+          npm run prettier > prettier-output.txt 2>&1
+          status=$?
+          cat prettier-output.txt
+          exit $status
         continue-on-error: true
 
       - name: Build (typecheck + vite build)
         id: build
-        run: npm run build
+        shell: bash
+        run: |
+          set +e
+          npm run build > build-output.txt 2>&1
+          status=$?
+          cat build-output.txt
+          exit $status
         continue-on-error: true
 
       # coverage.reporter dans vite.config doit inclure au minimum
@@ -47,8 +65,28 @@ jobs:
       # puisse lire le rapport et le publier dans la PR.
       - name: Lancer les tests avec couverture
         id: tests
-        run: npm run test:coverage
+        shell: bash
+        run: |
+          set +e
+          npm run test:coverage > tests-output.txt 2>&1
+          status=$?
+          cat tests-output.txt
+          exit $status
         continue-on-error: true
+
+      - name: Publier le détail des validations dans le résumé
+        if: always()
+        shell: bash
+        run: |
+          echo "## Détail des validations" >> "$GITHUB_STEP_SUMMARY"
+          for name in lint prettier build tests; do
+            file="${name}-output.txt"
+            if [ -f "$file" ] && [ -s "$file" ]; then
+              echo "### ${name}" >> "$GITHUB_STEP_SUMMARY"
+              cat "$file" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
 
       - name: Vérifier la génération du rapport de couverture
         if: always()
@@ -74,13 +112,16 @@ jobs:
           path: coverage/
           retention-days: 14
 
-      - name: Publier les résultats du lint en artefact
-        if: always() && steps.lint.outcome == 'failure'
+      - name: Publier les résultats détaillés en artefact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lint-report
+          name: validation-details
           path: |
-            eslint-report.json
+            lint-output.txt
+            prettier-output.txt
+            build-output.txt
+            tests-output.txt
           retention-days: 14
           if-no-files-found: ignore
 
