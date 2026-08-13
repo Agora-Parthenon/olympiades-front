@@ -51,12 +51,13 @@ export class WebsocketService {
       debug: () => {},
       onConnect: () => {
         this.reconnectAttempts = 0;
-        useConnectionStore.getState().markRestored();
+        useConnectionStore.getState().markConnected();
       },
       onStompError: (frame) => {
         console.error('Erreur STOMP', frame);
       },
       onWebSocketClose: () => {
+        useConnectionStore.getState().markDisconnected();
         if (!this.manuallyDisconnected) {
           this.tryReconnect();
         }
@@ -68,6 +69,7 @@ export class WebsocketService {
 
   disconnect(): void {
     this.manuallyDisconnected = true;
+    useConnectionStore.getState().markDisconnected();
     this.client?.deactivate();
   }
 

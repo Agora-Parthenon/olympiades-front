@@ -1,17 +1,10 @@
 import type { FC } from 'react';
 import { Button, Stack, Typography } from '@mui/material';
-import { httpClient } from '@/core/services/http-client.service';
 import { login } from '@/core/services/keycloak.service';
+import { useGatewayHealth } from '../hooks/use-gateway-health.hook';
 
 const HomePage: FC = () => {
-  const checkHealth = async () => {
-    try {
-      const response = await httpClient.get('/health');
-      console.log(response.data);
-    } catch (error) {
-      console.error('Gateway health check failed', error);
-    }
-  };
+  const { data, error, isFetching, refetch } = useGatewayHealth();
 
   return (
     <Stack
@@ -37,11 +30,24 @@ const HomePage: FC = () => {
 
       <Button
         variant="contained"
-        onClick={checkHealth}
+        onClick={() => refetch()}
+        disabled={isFetching}
         data-testid="home-gateway-health-link"
       >
-        Vérifier la gateway
+        {isFetching ? 'Vérification…' : 'Vérifier la gateway'}
       </Button>
+
+      {data && (
+        <Typography color="success.main" data-testid="home-gateway-health-status">
+          Gateway : {data.status}
+        </Typography>
+      )}
+
+      {error && (
+        <Typography color="error.main" data-testid="home-gateway-health-error">
+          Gateway injoignable
+        </Typography>
+      )}
 
       <Button
         variant="outlined"
