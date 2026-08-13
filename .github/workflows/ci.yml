@@ -1,0 +1,111 @@
+name: CI
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+      - develop
+      - staging
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+jobs:
+  build-test:
+    name: Lint, build, tests & couverture
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Vérifier le lint
+        id: lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Vérifier le formatage Prettier
+        id: prettier
+        run: npm run prettier
+        continue-on-error: true
+
+      - name: Build (typecheck + vite build)
+        id: build
+        run: npm run build
+        continue-on-error: true
+
+      # coverage.reporter dans vite.config doit inclure au minimum
+      # ['text', 'json-summary', 'json', 'lcov'] pour que l'étape suivante
+      # puisse lire le rapport et le publier dans la PR.
+      - name: Lancer les tests avec couverture
+        id: tests
+        run: npm run test:coverage
+        continue-on-error: true
+
+      - name: Vérifier la génération du rapport de couverture
+        if: always()
+        run: |
+          if [ -d coverage ]; then
+            echo "Rapport de couverture généré."
+          else
+            echo "Rapport de couverture absent."
+          fi
+
+      - name: Publier la couverture dans le résumé et la PR
+        if: always() && github.event_name == 'pull_request'
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          json-summary-path: coverage/coverage-summary.json
+          json-final-path: coverage/coverage-final.json
+
+      - name: Publier le rapport de couverture en artefact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14
+
+      - name: Publier les résultats du lint en artefact
+        if: always() && steps.lint.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: |
+            eslint-report.json
+          retention-days: 14
+          if-no-files-found: ignore
+
+      # Les tests, le lint, le prettier et le build restent bloquants.
+      # La couverture, elle, est uniquement informative.
+      - name: Échouer le job si le lint a échoué
+        if: steps.lint.outcome == 'failure'
+        run: |
+          echo "Le lint a échoué."
+          exit 1
+
+      - name: Échouer le job si le formatage Prettier est invalide
+        if: steps.prettier.outcome == 'failure'
+        run: |
+          echo "Le formatage Prettier est invalide. Lancez 'npm run prettier:fix'."
+          exit 1
+
+      - name: Échouer le job si le build a échoué
+        if: steps.build.outcome == 'failure'
+        run: |
+          echo "Le build a échoué."
+          exit 1
+
+      - name: Échouer le job si des tests ont échoué
+        if: steps.tests.outcome == 'failure'
+        run: |
+          echo "Des tests ont échoué. Voir le rapport de couverture en artefact."
+          exit 1
