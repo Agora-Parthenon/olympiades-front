@@ -12,6 +12,8 @@ export default mergeConfig(
       setupFiles: ['src/vitest.setup.ts'],
       coverage: {
         provider: 'v8',
+        reporter: ['text', 'json-summary', 'json', 'lcov'],
+        reportsDirectory: 'coverage',
         include: ['src/**/*.{ts,tsx}'],
         exclude: ['src/main.tsx', 'src/**/*.d.ts', 'src/vitest.setup.ts', 'src/theme/**'],
       },
