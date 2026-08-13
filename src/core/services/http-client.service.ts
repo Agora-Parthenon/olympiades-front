@@ -6,10 +6,7 @@ export const httpClient = axios.create({
   baseURL: getGatewayUrl(),
 });
 
-
-export function attachAuthHeader(
-  config: InternalAxiosRequestConfig,
-): InternalAxiosRequestConfig {
+export function attachAuthHeader(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {
   const token = getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

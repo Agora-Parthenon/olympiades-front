@@ -19,13 +19,11 @@ const HomePage: FC = () => {
         textAlign: 'center',
       }}
     >
-      <Typography variant="h1">
-        Olympiades
-      </Typography>
+      <Typography variant="h1">Olympiades</Typography>
 
       <Typography color="text.secondary" sx={{ maxWidth: '28rem' }}>
-        Plateforme de jeux de société en ligne. Le socle applicatif est en place — les fonctionnalités
-        arrivent avec les prochaines User Stories.
+        Plateforme de jeux de société en ligne. Le socle applicatif est en place — les
+        fonctionnalités arrivent avec les prochaines User Stories.
       </Typography>
 
       <Button
@@ -49,10 +47,7 @@ const HomePage: FC = () => {
         </Typography>
       )}
 
-      <Button
-        variant="outlined"
-        onClick={() => login()}
-      >
+      <Button variant="outlined" onClick={() => login()}>
         Se connecter
       </Button>
     </Stack>
