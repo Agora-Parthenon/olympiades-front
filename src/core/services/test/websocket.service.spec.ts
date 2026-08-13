@@ -118,9 +118,8 @@ describe('WebsocketService', () => {
   describe('reconnexion automatique (CA-02)', () => {
     it('tente 3 reconnexions avec un délai croissant (1s, 2s, 4s) après une coupure', () => {
       service.connect();
-      expect(activateMock).toHaveBeenCalledTimes(1); // connexion initiale
+      expect(activateMock).toHaveBeenCalledTimes(1);
 
-      // 1ère coupure -> 1ère tentative après 1000ms
       configRef.current?.onWebSocketClose?.();
       expect(useConnectionStore.getState().isConnected).toBe(false);
       vi.advanceTimersByTime(999);
@@ -128,14 +127,12 @@ describe('WebsocketService', () => {
       vi.advanceTimersByTime(1);
       expect(activateMock).toHaveBeenCalledTimes(2);
 
-      // 2e coupure -> 2e tentative après 2000ms
       configRef.current?.onWebSocketClose?.();
       vi.advanceTimersByTime(1999);
       expect(activateMock).toHaveBeenCalledTimes(2);
       vi.advanceTimersByTime(1);
       expect(activateMock).toHaveBeenCalledTimes(3);
 
-      // 3e coupure -> 3e tentative après 4000ms
       configRef.current?.onWebSocketClose?.();
       vi.advanceTimersByTime(3999);
       expect(activateMock).toHaveBeenCalledTimes(3);
@@ -148,27 +145,26 @@ describe('WebsocketService', () => {
     it('déclenche le callback de perte de connexion après le 3e échec, pas avant', () => {
       service.connect();
 
-      configRef.current?.onWebSocketClose?.(); // coupure initiale
-      vi.advanceTimersByTime(1000); // tentative 1
-      configRef.current?.onWebSocketClose?.(); // échec tentative 1
-      vi.advanceTimersByTime(2000); // tentative 2
-      configRef.current?.onWebSocketClose?.(); // échec tentative 2
+      configRef.current?.onWebSocketClose?.();
+      vi.advanceTimersByTime(1000);
+      configRef.current?.onWebSocketClose?.();
+      vi.advanceTimersByTime(2000);
+      configRef.current?.onWebSocketClose?.();
       expect(onConnectionLost).not.toHaveBeenCalled();
 
-      vi.advanceTimersByTime(4000); // tentative 3
-      configRef.current?.onWebSocketClose?.(); // échec tentative 3 -> abandon
+      vi.advanceTimersByTime(4000);
+      configRef.current?.onWebSocketClose?.();
 
       expect(onConnectionLost).toHaveBeenCalledTimes(1);
-      expect(activateMock).toHaveBeenCalledTimes(4); // 1 initiale + 3 tentatives, jamais une 4e
+      expect(activateMock).toHaveBeenCalledTimes(4);
     });
 
     it('réinitialise le compteur de tentatives après une reconnexion réussie', () => {
       service.connect();
-      configRef.current?.onWebSocketClose?.(); // coupure
-      vi.advanceTimersByTime(1000); // tentative 1 relancée
-      configRef.current?.onConnect?.(); // succès -> reset du compteur
+      configRef.current?.onWebSocketClose?.();
+      vi.advanceTimersByTime(1000);
+      configRef.current?.onConnect?.();
 
-      // nouvelle coupure : on doit repartir sur un cycle complet (délai 1000ms, pas 2000ms)
       configRef.current?.onWebSocketClose?.();
       vi.advanceTimersByTime(999);
       expect(activateMock).toHaveBeenCalledTimes(2);
@@ -195,7 +191,9 @@ describe('WebsocketService', () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       service.connect();
 
-      expect(() => configRef.current?.onStompError?.({ headers: { message: 'boom' } })).not.toThrow();
+      expect(() =>
+        configRef.current?.onStompError?.({ headers: { message: 'boom' } }),
+      ).not.toThrow();
       expect(consoleErrorSpy).toHaveBeenCalled();
 
       consoleErrorSpy.mockRestore();

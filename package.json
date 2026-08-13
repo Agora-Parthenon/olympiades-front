@@ -1,7 +1,10 @@
 {
   "name": "olympiades-front",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -25,7 +28,7 @@
     "keycloak-js": "^26.2.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router": "^6.30.3",
+    "react-router": "^7.18.2",
     "sockjs-client": "^1.6.1",
     "zustand": "^5.0.12"
   },
@@ -50,5 +53,12 @@
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.10",
     "vitest": "^4.1.10"
+  },
+  "optionalDependencies": {
+    "@rolldown/binding-darwin-arm64": "^1.2.4",
+    "@rolldown/binding-darwin-x64": "^1.2.4",
+    "@rolldown/binding-linux-arm64-gnu": "^1.2.4",
+    "@rolldown/binding-linux-x64-gnu": "^1.2.4",
+    "@rolldown/binding-win32-x64-msvc": "^1.2.4"
   }
 }

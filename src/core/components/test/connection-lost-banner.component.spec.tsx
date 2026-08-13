@@ -19,7 +19,9 @@ describe('ConnectionLostBanner', () => {
     render(<ConnectionLostBanner />);
 
     expect(
-      screen.getByText('Connexion au serveur perdue. Vérifiez votre réseau puis rechargez la page.'),
+      screen.getByText(
+        'Connexion au serveur perdue. Vérifiez votre réseau puis rechargez la page.',
+      ),
     ).toBeInTheDocument();
   });
 

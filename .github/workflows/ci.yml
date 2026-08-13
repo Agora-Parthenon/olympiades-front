@@ -1,0 +1,157 @@
+name: CI
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+      - develop
+      - staging
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+jobs:
+  build-test:
+    name: Lint, build, tests & couverture
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Vérifier le lint
+        id: lint
+        shell: bash
+        run: |
+          set +e
+          npm run lint > lint-output.txt 2>&1
+          status=$?
+          cat lint-output.txt
+          exit $status
+        continue-on-error: true
+
+      - name: Vérifier le formatage Prettier
+        id: prettier
+        shell: bash
+        run: |
+          set +e
+          npm run prettier > prettier-output.txt 2>&1
+          status=$?
+          cat prettier-output.txt
+          exit $status
+        continue-on-error: true
+
+      - name: Build (typecheck + vite build)
+        id: build
+        shell: bash
+        run: |
+          set +e
+          npm run build > build-output.txt 2>&1
+          status=$?
+          cat build-output.txt
+          exit $status
+        continue-on-error: true
+
+      # coverage.reporter dans vite.config doit inclure au minimum
+      # ['text', 'json-summary', 'json', 'lcov'] pour que l'étape suivante
+      # puisse lire le rapport et le publier dans la PR.
+      - name: Lancer les tests avec couverture
+        id: tests
+        shell: bash
+        run: |
+          set +e
+          npm run test:coverage > tests-output.txt 2>&1
+          status=$?
+          cat tests-output.txt
+          if [ $status -eq 0 ]; then
+            ls -la coverage
+            test -f coverage/coverage-summary.json
+            test -f coverage/coverage-final.json
+          fi
+          exit $status
+        continue-on-error: true
+
+      - name: Publier le détail des validations dans le résumé
+        if: always()
+        shell: bash
+        run: |
+          echo "## Détail des validations" >> "$GITHUB_STEP_SUMMARY"
+          for name in lint prettier build tests; do
+            file="${name}-output.txt"
+            if [ -f "$file" ] && [ -s "$file" ]; then
+              echo "### ${name}" >> "$GITHUB_STEP_SUMMARY"
+              cat "$file" >> "$GITHUB_STEP_SUMMARY"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+      - name: Vérifier la génération du rapport de couverture
+        if: always()
+        run: |
+          if [ -d coverage ]; then
+            echo "Rapport de couverture généré."
+          else
+            echo "Rapport de couverture absent."
+          fi
+
+      - name: Publier la couverture dans le résumé et la PR
+        if: always() && github.event_name == 'pull_request'
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          json-summary-path: coverage/coverage-summary.json
+          json-final-path: coverage/coverage-final.json
+
+      - name: Publier le rapport de couverture en artefact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14
+
+      - name: Publier les résultats détaillés en artefact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-details
+          path: |
+            lint-output.txt
+            prettier-output.txt
+            build-output.txt
+            tests-output.txt
+          retention-days: 14
+          if-no-files-found: ignore
+
+      # Les tests, le lint, le prettier et le build restent bloquants.
+      # La couverture, elle, est uniquement informative.
+      - name: Échouer le job si le lint a échoué
+        if: steps.lint.outcome == 'failure'
+        run: |
+          echo "Le lint a échoué."
+          exit 1
+
+      - name: Échouer le job si le formatage Prettier est invalide
+        if: steps.prettier.outcome == 'failure'
+        run: |
+          echo "Le formatage Prettier est invalide. Lancez 'npm run prettier:fix'."
+          exit 1
+
+      - name: Échouer le job si le build a échoué
+        if: steps.build.outcome == 'failure'
+        run: |
+          echo "Le build a échoué."
+          exit 1
+
+      - name: Échouer le job si des tests ont échoué
+        if: steps.tests.outcome == 'failure'
+        run: |
+          echo "Des tests ont échoué. Voir le rapport de couverture en artefact."
+          exit 1

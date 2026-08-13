@@ -12,8 +12,7 @@ const { keycloakInstance } = vi.hoisted(() => ({
     updateToken: vi.fn(),
     token: undefined as string | undefined,
     tokenParsed: undefined as
-      | { sub?: string; preferred_username?: string; realm_access?: { roles: string[] } }
-      | undefined,
+      { sub?: string; preferred_username?: string; realm_access?: { roles: string[] } } | undefined,
     authenticated: false as boolean | undefined,
     onAuthSuccess: undefined as (() => void) | undefined,
     onAuthLogout: undefined as (() => void) | undefined,
