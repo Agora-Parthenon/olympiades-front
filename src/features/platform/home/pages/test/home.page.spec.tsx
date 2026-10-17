@@ -1,15 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpClient } from '@/core/services/http-client.service';
-import { login } from '@/core/services/keycloak.service';
 import HomePage from '../home.page';
 
 vi.mock('@/core/services/http-client.service', () => ({
   httpClient: { get: vi.fn() },
-}));
-
-vi.mock('@/core/services/keycloak.service', () => ({
-  login: vi.fn(),
 }));
 
 // Un QueryClient frais par test : retry désactivé pour ne pas ralentir les tests d'erreur,
@@ -76,13 +71,5 @@ describe('HomePage', () => {
     await waitFor(() =>
       expect(screen.getByTestId('home-gateway-health-error')).toBeInTheDocument(),
     );
-  });
-
-  it('déclenche le login Keycloak au clic sur "Se connecter"', () => {
-    renderHomePage();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Se connecter' }));
-
-    expect(login).toHaveBeenCalled();
   });
 });

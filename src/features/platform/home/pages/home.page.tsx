@@ -1,6 +1,5 @@
 import type { FC } from 'react';
 import { Button, Stack, Typography } from '@mui/material';
-import { login } from '@/core/services/keycloak.service';
 import { useGatewayHealth } from '../hooks/use-gateway-health.hook';
 
 const HomePage: FC = () => {
@@ -12,7 +11,7 @@ const HomePage: FC = () => {
       data-testid="home-page"
       spacing={3}
       sx={{
-        minHeight: '100vh',
+        minHeight: 'calc(100vh - 64px)', // 64px : hauteur de l'en-tête
         alignItems: 'center',
         justifyContent: 'center',
         p: 4,
@@ -46,10 +45,6 @@ const HomePage: FC = () => {
           Gateway injoignable
         </Typography>
       )}
-
-      <Button variant="outlined" onClick={() => login()}>
-        Se connecter
-      </Button>
     </Stack>
   );
 };
