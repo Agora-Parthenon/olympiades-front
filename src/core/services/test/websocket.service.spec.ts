@@ -1,4 +1,4 @@
-import { setTokenProvider } from '../token-provider.service';
+import { setTokenProvider, setTokenRefresher } from '../token-provider.service';
 import { useConnectionStore } from '../../stores/connection.store';
 
 // On mocke @stomp/stompjs entièrement : on ne veut pas ouvrir de vraie WebSocket en test,
@@ -7,6 +7,7 @@ import { useConnectionStore } from '../../stores/connection.store';
 // est hoisté au-dessus des imports par Vitest.
 interface FakeStompClientConfig {
   webSocketFactory: () => unknown;
+  beforeConnect?: () => Promise<void>;
   onConnect?: () => void;
   onWebSocketClose?: () => void;
   onStompError?: (frame: unknown) => void;
@@ -70,6 +71,7 @@ describe('WebsocketService', () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
     setTokenProvider(() => undefined);
+    setTokenRefresher(() => Promise.resolve());
   });
 
   describe('connexion', () => {
@@ -85,6 +87,24 @@ describe('WebsocketService', () => {
 
       expect(MockWebSocket.instances).toHaveLength(1);
       expect(MockWebSocket.instances[0].url).toBe('ws://localhost:8080/ws?token=test-token');
+    });
+
+    it('renouvelle le token avant chaque tentative de connexion (US-09, CA-01)', async () => {
+      const refresher = vi.fn().mockResolvedValue(undefined);
+      setTokenRefresher(refresher);
+      service.connect();
+
+      await configRef.current?.beforeConnect?.();
+      await configRef.current?.beforeConnect?.();
+
+      expect(refresher).toHaveBeenCalledTimes(2);
+    });
+
+    it('tente quand même la connexion si la session ne peut plus être renouvelée', async () => {
+      setTokenRefresher(() => Promise.reject(new Error('session expirée')));
+      service.connect();
+
+      await expect(configRef.current?.beforeConnect?.()).resolves.toBeUndefined();
     });
 
     it('ajoute le paramètre "service" quand il est fourni à connect()', () => {
@@ -246,6 +266,7 @@ describe('websocketService (singleton exporté)', () => {
   afterEach(() => {
     vi.useRealTimers();
     setTokenProvider(() => undefined);
+    setTokenRefresher(() => Promise.resolve());
   });
 
   it('est bien câblé sur useConnectionStore.markLost() après 3 échecs de reconnexion', () => {
