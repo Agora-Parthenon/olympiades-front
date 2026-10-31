@@ -1,7 +1,7 @@
 import { Client } from '@stomp/stompjs';
 import type { IMessage, StompSubscription } from '@stomp/stompjs';
 import { getGatewayUrl } from './config.service';
-import { getToken } from './token-provider.service';
+import { ensureFreshToken, getToken } from './token-provider.service';
 import { useConnectionStore } from '../stores/connection.store';
 
 // DAT §5.3 : 3 tentatives, délai croissant.
@@ -47,6 +47,16 @@ export class WebsocketService {
       // donc le token est toujours relu à jour — y compris sur les reconnexions,
       // après un éventuel refresh Keycloak entre-temps.
       webSocketFactory: () => new WebSocket(buildBrokerUrl(this.service)),
+      // Le token n'est vérifié par la gateway qu'à l'ouverture : on le renouvelle donc juste
+      // avant chaque tentative (US-09, CA-01). Si la session est perdue, on tente quand même :
+      // la gateway refuse la connexion et la logique de reconnexion ci-dessous prend le relais.
+      beforeConnect: async () => {
+        try {
+          await ensureFreshToken();
+        } catch {
+          // Session expirée : déjà signalée à l'utilisateur par le store de session
+        }
+      },
       reconnectDelay: 0, // on pilote nous-mêmes le nombre de tentatives et le délai
       debug: () => {},
       onConnect: () => {
