@@ -1,6 +1,7 @@
 import Keycloak from 'keycloak-js';
 import { getKeycloakUrl } from './config.service';
-import { setTokenProvider } from './token-provider.service';
+import { setTokenProvider, setTokenRefresher } from './token-provider.service';
+import { useSessionStore } from '../stores/session.store';
 import { useUserStore } from '../stores/user.store';
 
 const keycloak = new Keycloak({
@@ -16,6 +17,16 @@ const keycloak = new Keycloak({
  */
 export async function initKeycloak(): Promise<boolean> {
   setTokenProvider(() => keycloak.token);
+  setTokenRefresher(renewToken);
+
+  // À assigner AVANT init() : keycloak-js programme l'expiration avec le gestionnaire présent
+  // au moment où il reçoit le token. Assigné après, le token obtenu à l'initialisation (connexion
+  // ou rechargement de page) n'aurait aucun gestionnaire et ne serait jamais renouvelé tout seul.
+  keycloak.onTokenExpired = () => {
+    renewToken().catch(() => {
+      // Déjà géré dans renewToken (session marquée comme expirée)
+    });
+  };
 
   const authenticated = await keycloak.init({
     onLoad: 'check-sso',
@@ -29,11 +40,25 @@ export async function initKeycloak(): Promise<boolean> {
 
   keycloak.onAuthSuccess = syncUserStore;
   keycloak.onAuthLogout = () => useUserStore.getState().clearUser();
-  keycloak.onTokenExpired = () => {
-    keycloak.updateToken(30).catch(() => keycloak.logout());
-  };
 
   return authenticated;
+}
+
+/**
+ * Renouvelle le token d'accès via le refresh token, sans que l'utilisateur ne s'en aperçoive
+ * (US-09, CA-01). Sans effet tant que le token est valable plus de 30 secondes.
+ * Si le refresh token n'est plus valable (inactif trop longtemps, session fermée côté
+ * Keycloak…), la session est marquée comme expirée (CA-02) et la promesse est rejetée.
+ */
+async function renewToken(): Promise<void> {
+  try {
+    await keycloak.updateToken(30);
+  } catch (error) {
+    keycloak.clearToken();
+    useUserStore.getState().clearUser();
+    useSessionStore.getState().markExpired();
+    throw error;
+  }
 }
 
 function syncUserStore(): void {
@@ -42,6 +67,7 @@ function syncUserStore(): void {
     return;
   }
 
+  useSessionStore.getState().clearExpired();
   useUserStore.getState().setUser({
     id: parsed.sub,
     pseudo: typeof parsed.preferred_username === 'string' ? parsed.preferred_username : '',

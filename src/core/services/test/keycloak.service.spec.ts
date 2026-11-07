@@ -1,5 +1,11 @@
+import { useSessionStore } from '../../stores/session.store';
 import { useUserStore } from '../../stores/user.store';
-import { getToken, setTokenProvider } from '../token-provider.service';
+import {
+  ensureFreshToken,
+  getToken,
+  setTokenProvider,
+  setTokenRefresher,
+} from '../token-provider.service';
 
 // keycloak.service.ts instancie `new Keycloak(...)` au chargement du module (singleton).
 // On mocke keycloak-js pour que ce singleton soit un objet contrôlable depuis les tests :
@@ -9,6 +15,7 @@ const { keycloakInstance } = vi.hoisted(() => ({
     init: vi.fn(),
     login: vi.fn(),
     logout: vi.fn(),
+    clearToken: vi.fn(),
     updateToken: vi.fn(),
     token: undefined as string | undefined,
     tokenParsed: undefined as
@@ -35,6 +42,7 @@ describe('keycloak.service', () => {
     keycloakInstance.init.mockReset();
     keycloakInstance.login.mockReset();
     keycloakInstance.logout.mockReset();
+    keycloakInstance.clearToken.mockReset();
     keycloakInstance.updateToken.mockReset();
     keycloakInstance.token = undefined;
     keycloakInstance.tokenParsed = undefined;
@@ -43,7 +51,9 @@ describe('keycloak.service', () => {
     keycloakInstance.onAuthLogout = undefined;
     keycloakInstance.onTokenExpired = undefined;
     useUserStore.setState({ user: null });
+    useSessionStore.setState({ expired: false });
     setTokenProvider(() => undefined);
+    setTokenRefresher(() => Promise.resolve());
   });
 
   describe('initKeycloak', () => {
@@ -128,18 +138,21 @@ describe('keycloak.service', () => {
       expect(useUserStore.getState().user).toBeNull();
     });
 
-    it('tente un refresh silencieux à l’expiration du token, et logout si ça échoue', async () => {
-      keycloakInstance.init.mockResolvedValueOnce(false);
-      keycloakInstance.updateToken.mockRejectedValueOnce(new Error('expired'));
+    it('enregistre le gestionnaire d’expiration avant init(), sinon le premier token ne serait jamais renouvelé', async () => {
+      let handlerDuringInit: unknown;
+      keycloakInstance.init.mockImplementationOnce(() => {
+        // keycloak-js programme l'expiration du token reçu pendant init() avec le gestionnaire
+        // présent à cet instant précis.
+        handlerDuringInit = keycloakInstance.onTokenExpired;
+        return Promise.resolve(false);
+      });
+
       await initKeycloak();
 
-      keycloakInstance.onTokenExpired?.();
-
-      expect(keycloakInstance.updateToken).toHaveBeenCalledWith(30);
-      await vi.waitFor(() => expect(keycloakInstance.logout).toHaveBeenCalled());
+      expect(handlerDuringInit).toBeTypeOf('function');
     });
 
-    it('ne déconnecte pas l’utilisateur si le refresh silencieux réussit', async () => {
+    it('tente un refresh silencieux à l’expiration du token', async () => {
       keycloakInstance.init.mockResolvedValueOnce(false);
       keycloakInstance.updateToken.mockResolvedValueOnce(true);
       await initKeycloak();
@@ -147,7 +160,58 @@ describe('keycloak.service', () => {
       keycloakInstance.onTokenExpired?.();
       await vi.waitFor(() => expect(keycloakInstance.updateToken).toHaveBeenCalledWith(30));
 
+      expect(keycloakInstance.clearToken).not.toHaveBeenCalled();
+      expect(useSessionStore.getState().expired).toBe(false);
+    });
+
+    it('marque la session comme expirée si le refresh silencieux échoue (sans déconnexion Keycloak)', async () => {
+      useUserStore.setState({ user: { id: 'x', pseudo: 'x', roles: [] } });
+      keycloakInstance.init.mockResolvedValueOnce(false);
+      keycloakInstance.updateToken.mockRejectedValueOnce(new Error('expired'));
+      await initKeycloak();
+
+      keycloakInstance.onTokenExpired?.();
+
+      await vi.waitFor(() => expect(useSessionStore.getState().expired).toBe(true));
+      expect(useUserStore.getState().user).toBeNull();
       expect(keycloakInstance.logout).not.toHaveBeenCalled();
+    });
+
+    it('efface la marque "session expirée" quand l’utilisateur se reconnecte', async () => {
+      useSessionStore.setState({ expired: true });
+      keycloakInstance.init.mockResolvedValueOnce(false);
+      await initKeycloak();
+
+      keycloakInstance.tokenParsed = { sub: 'user-4', preferred_username: 'lucy' };
+      keycloakInstance.onAuthSuccess?.();
+
+      expect(useSessionStore.getState().expired).toBe(false);
+    });
+  });
+
+  describe('renouvellement du token avant une requête (US-09, CA-01)', () => {
+    it('renouvelle le token s’il est sur le point d’expirer', async () => {
+      keycloakInstance.init.mockResolvedValueOnce(false);
+      keycloakInstance.updateToken.mockResolvedValueOnce(true);
+      await initKeycloak();
+
+      await ensureFreshToken();
+
+      expect(keycloakInstance.updateToken).toHaveBeenCalledWith(30);
+      expect(useSessionStore.getState().expired).toBe(false);
+    });
+
+    it('rejette et marque la session comme expirée quand le refresh token n’est plus valable (CA-02)', async () => {
+      useUserStore.setState({ user: { id: 'x', pseudo: 'x', roles: [] } });
+      keycloakInstance.init.mockResolvedValueOnce(false);
+      keycloakInstance.updateToken.mockRejectedValueOnce(new Error('refresh token expired'));
+      await initKeycloak();
+
+      await expect(ensureFreshToken()).rejects.toThrow('refresh token expired');
+
+      expect(keycloakInstance.clearToken).toHaveBeenCalled();
+      expect(useUserStore.getState().user).toBeNull();
+      expect(useSessionStore.getState().expired).toBe(true);
     });
   });
 
