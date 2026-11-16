@@ -5,7 +5,9 @@ import { Stack, Typography } from '@mui/material';
 const LobbyPage: FC = () => (
   <Stack component="main" data-testid="lobby-page" spacing={2} sx={{ p: 4 }}>
     <Typography variant="h1">Lobby</Typography>
-    <Typography color="text.secondary">Les parties en attente s’afficheront ici bientôt.</Typography>
+    <Typography color="text.secondary">
+      Les parties en attente s’afficheront ici bientôt.
+    </Typography>
   </Stack>
 );
 
