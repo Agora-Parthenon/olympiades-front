@@ -6,6 +6,15 @@ import { useSessionStore } from '@/core/stores/session.store';
 import { useUserStore } from '@/core/stores/user.store';
 import { routes } from '../app.router';
 
+// Le gabarit charge le profil d'un joueur connecté : on évite tout appel réseau réel
+vi.mock('@/features/platform/profile/services/profile.service', async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import('@/features/platform/profile/services/profile.service')
+  >()),
+  ensureProfile: vi.fn(() => new Promise(() => {})),
+  getAvatars: vi.fn(() => new Promise(() => {})),
+}));
+
 vi.mock('@/core/services/keycloak.service', () => ({
   login: vi.fn(),
   logout: vi.fn(),
